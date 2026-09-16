@@ -111,18 +111,13 @@ cd ..
 ```bash
 cd src
 
-python preprocess.py \
-    --data_dir ../data/Sign-Language-Digits-Dataset/Dataset \
-    --out_dir ../outputs \
-    --img_size 128
+python preprocess.py --data_dir ..\data\Sign-Language-Digits-Dataset\Dataset --out_dir ..\outputs --img_size 128
 
-python keypoint_extraction.py \
-    --data_dir ../data/Sign-Language-Digits-Dataset/Dataset \
-    --out_dir ../outputs
+python keypoint_extraction.py --data_dir ..\data\Sign-Language-Digits-Dataset\Dataset --out_dir ..\outputs
 
-python visualize_keypoints.py \
-    --data_dir ../data/Sign-Language-Digits-Dataset/Dataset \
-    --out_dir ../outputs
+python visualize_keypoints.py --data_dir ..\data\Sign-Language-Digits-Dataset\Dataset --out_dir ..\outputs
+
+python baseline_classifier.py --keypoints ..\outputs\hand_keypoints_v2.npz --out_dir ..\outputs
 ```
 
 ## Outputs
@@ -131,14 +126,19 @@ python visualize_keypoints.py \
 |---|---|
 | `outputs/preprocessed_dataset.npz` | `X_train/val/test`, `y_train/val/test`, `class_names` — resized, normalized image tensors, stratified 70/15/15 split |
 | `outputs/hand_keypoints.npz` | `keypoints` (N × 63 array: 21 landmarks × x,y,z), `labels`, `class_names` |
+| `src/baseline_classifier.py` | Trains + evaluates Logistic Regression and Random Forest on keypoints |
 | `outputs/keypoint_detection_demo.jpg` | Visual grid of landmark detection, one sample per class |
+| `baseline_metrics_v2.json` | Full per-class precision/recall/F1, both models, improved dataset |
+| `confusion_matrix_logreg_v2.png`, `confusion_matrix_rf_v2.png` | Confusion matrices on improved dataset |
 
+```
 .
 ├── README.md              this file
 ├── ROADMAP.md              remaining work, tools, and task division
 ├── data/
 │   └── Sign-Language-Digits-Dataset/   (clone separately, see above)
 ├── src/
+│   ├── baseline_classifier.py
 │   ├── preprocess.py
 │   ├── keypoint_extraction.py
 │   └── visualize_keypoints.py
