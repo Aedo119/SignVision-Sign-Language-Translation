@@ -3,6 +3,4 @@ __pycache__/
 .venv/
 venv/
 data/Sign-Language-Digits-Dataset/Dataset/
-outputs/preprocessed_dataset.npz
-C:\Users\ASUS\Desktop\SignVision\outputs\hand_keypoints_v2.npz
-.npz
+*.npz
