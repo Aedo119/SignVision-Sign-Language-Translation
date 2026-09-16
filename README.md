@@ -16,11 +16,11 @@ Sign language video
         ↓
 Frame preprocessing            ┐
         ↓                      │  Data pipeline  (implemented)
-Keypoint detection              ┘
+Keypoint detection             ┘
         ↓
 Spatial feature extraction     ┐
         ↓                      │
-Temporal modeling               │  Deep learning  (planned — see ROADMAP.md)
+Temporal modeling              │  Deep learning  (planned — see ROADMAP.md)
         ↓                      │
 Sign classification            ┘
         ↓
@@ -133,6 +133,7 @@ python visualize_keypoints.py \
 | `outputs/hand_keypoints.npz` | `keypoints` (N × 63 array: 21 landmarks × x,y,z), `labels`, `class_names` |
 | `outputs/keypoint_detection_demo.jpg` | Visual grid of landmark detection, one sample per class |
 
+```
 .
 ├── README.md              this file
 ├── ROADMAP.md              remaining work, tools, and task division
