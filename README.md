@@ -16,11 +16,11 @@ Sign language video
         ↓
 Frame preprocessing            ┐
         ↓                      │  Data pipeline  (implemented)
-Keypoint detection              ┘
+Keypoint detection             ┘
         ↓
 Spatial feature extraction     ┐
         ↓                      │
-Temporal modeling               │  Deep learning  (planned — see ROADMAP.md)
+Temporal modeling              │  Deep learning  (planned — see ROADMAP.md)
         ↓                      │
 Sign classification            ┘
         ↓
