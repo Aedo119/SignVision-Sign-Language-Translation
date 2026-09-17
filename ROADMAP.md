@@ -4,6 +4,14 @@ This covers everything after the data pipeline stage documented in `README.md`:
 spatial feature extraction, temporal modeling, classification, language
 processing, and deployment. Roughly 75% of the project by architecture stage.
 
+> **Since this roadmap was first written:** a keypoints-only baseline
+> classifier has been added and evaluated (see `README.md` "Baseline
+> evaluation" and `DECISIONS.md` DEC-006), and the reasoning behind the
+> keypoint-detection retry strategy has been investigated further in
+> `FAILURE_ANALYSIS.md`. Section 8 below has been updated to reflect this —
+> the rest of the roadmap (Sections 1–7) is unchanged and still describes
+> genuinely unstarted work.
+
 ---
 
 ## 1. Switch to a video dataset
@@ -133,17 +141,35 @@ coherent text (grammar, word order, context).
 
 ## 8. Evaluation and ablation studies
 
-Once Sections 2–4 exist, run comparisons for the final report:
-- Keypoints-only vs. RepViT features vs. combined.
+**Done:** a keypoints-only baseline (Logistic Regression / Random Forest on
+the 63-d MediaPipe vectors, no RepViT, no temporal modeling) has already
+been trained and evaluated — ~98.7% test accuracy, 98.5% 5-fold CV accuracy.
+See `README.md` "Baseline evaluation" for the full numbers and the explicit
+caveat that this is a floor, not a preview of final system accuracy.
+
+**Also done:** a failure analysis of the keypoint-detection step itself
+(`FAILURE_ANALYSIS.md`) found that missed detections are concentrated in
+specific hand poses (digits 1, 2, 6 — thin/sparse finger configurations),
+not explained by image brightness, contrast, or framing. This means the
+remaining ~8.7% of undetected images (179/2,062) are a targeted problem, not
+a generic "improve image quality" one.
+
+**Still remaining, once Sections 2–4 exist:**
+- Keypoints-only (done, above) vs. RepViT features vs. combined.
 - With vs. without the BiLSTM temporal stage (i.e. per-frame classification
   vs. sequence classification).
 - Effect of dataset size / augmentation on accuracy.
+- Worth revisiting given Finding 2 in `FAILURE_ANALYSIS.md`: a targeted
+  fourth detection pass (e.g. cropping tighter around the detected
+  skin-color region before re-running MediaPipe) aimed specifically at the
+  low-detection-rate poses (classes 1, 2, 6), rather than further blind
+  threshold/orientation tuning.
 
 ---
 
 ## Suggested task division (4 members)
 
-Lets each person own one
+This assumes roughly equal effort per person and lets each person own one
 architecture stage end-to-end, with everyone contributing to integration and
 the final report.
 
