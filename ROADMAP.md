@@ -4,24 +4,21 @@ This covers everything after the data pipeline stage documented in `README.md`:
 spatial feature extraction, temporal modeling, classification, language
 processing, and deployment. Roughly 75% of the project by architecture stage.
 
-## 1. Switch to a video dataset
+## 1. Switch to the WLASL video dataset
 
 The current dataset (Sign-Language-Digits) is static images of isolated signs.
 Temporal modeling (Section 3 below) needs actual motion across frames, so the
-next step is adopting a video dataset:
+next step is moving to a video dataset. The project has standardized on
+**WLASL (Word-Level ASL)** for that phase.
 
-| Dataset | Scope | Notes |
-|---|---|---|
-| **WLASL** (Word-Level ASL) | ~2,000 English ASL words, video clips | Free, but videos are distributed as links to external sources (YouTube etc.) rather than a single download — budget time to fetch/verify clips, not money. |
-| **INCLUDE** | Indian Sign Language, word/sentence level | Better fit if the project targets Indian Sign Language specifically; also free. |
+**Selected dataset:** WLASL — a large English ASL word dataset with clip-based
+examples. The videos are distributed as links to external sources (for example,
+YouTube) rather than a single bundled download, so fetching and verification
+need to be built into the data pipeline.
 
-**Decision needed from the team:** which sign language / dataset to standardize
-on, since this affects every downstream stage. Recommend deciding this first,
-before starting Section 2–3 work below.
-
-Once chosen, `src/preprocess.py` needs a video-aware variant: sample N frames
-per clip at a fixed rate (e.g. via OpenCV `VideoCapture`) instead of treating
-each file as a single frame. The resize/normalize logic stays the same.
+`src/preprocess.py` needs a video-aware variant: sample N frames per clip at a
+fixed rate (e.g. via OpenCV `VideoCapture`) instead of treating each file as a
+single frame. The resize/normalize logic stays the same.
 
 ---
 

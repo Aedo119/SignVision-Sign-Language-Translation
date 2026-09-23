@@ -22,10 +22,9 @@ validate Steps 1–3 of the pipeline (preprocessing, keypoint detection) and
 get an early baseline evaluation signal.
 
 **Alternatives considered:**
-- WLASL / INCLUDE directly — rejected for Milestone 1 due to slower,
-  higher-friction data acquisition; not rejected long-term (see DEC-009).
-- Kaggle-hosted datasets (e.g. ASL Alphabet CSV) — rejected because they
-  require a Kaggle account/API key, adding setup friction for teammates.
+- WLASL / INCLUDE directly — both were viable video datasets, but both were
+  deferred for Milestone 1 because they require slower, higher-friction data
+  acquisition and are unnecessary before validating the core pipeline.
 
 **Consequence:** This dataset cannot validate temporal modeling or
 continuous/sentence-level signing — it structurally contains no motion. A
@@ -128,7 +127,7 @@ Augmentation Works*, arXiv:2011.11156, for a more critical analysis of when
 TTA helps vs. doesn't — worth reading before assuming this generalizes to a
 future video dataset without re-checking.
 
-**Root cause, investigated further (see `FAILURE_ANALYSIS.md`):** the
+**Root cause, investigated further:** the
 original hypotheses above (borderline confidence / orientation bias)
 correctly predicted that retries would recover *some* samples, but a deeper
 analysis found the better explanation is **hand pose itself** — detection
@@ -165,11 +164,36 @@ accuracy.
 
 ---
 
+### DEC-009 — Use WLASL as the canonical video dataset for the next phase
+**Status:** Accepted
+
+**Context:** The project has validated the static-image pipeline (preprocessing,
+keypoint detection, baseline classifier). The remaining work in `ROADMAP.md`
+Sections 2–4 requires a real video dataset so that the spatial and temporal
+modeling stages can learn motion on realistic ASL sequences.
+
+**Decision:** Standardize on **WLASL (Word-Level ASL)** as the dataset for the
+video-based modeling phase. WLASL is the primary target for downstream stages
+including RepViT feature extraction, temporal modeling, and final
+classification.
+
+**Alternatives considered:**
+- **INCLUDE** — viable, but less suitable for this project's broader ASL word
+  recognition goal and less commonly used as the shared benchmark target in
+  the team workflow.
+- Continuing with the static dataset only — rejected because it cannot train or
+  validate motion-based models.
+
+**Consequence:** The pipeline must be adapted to load clips from WLASL rather
+than individual static frames. All subsequent sections of `ROADMAP.md` now
+assume WLASL-style video inputs and frame-level sampling.
+
+---
+
 ## Open decisions (not yet made — tracked here so they aren't forgotten)
 
 | # | Decision needed | Notes |
 |---|---|---|
-| OPEN-1 | Which video dataset: WLASL vs. INCLUDE | Blocks all of `ROADMAP.md` Sections 2–4; see DEC-001's revisit note |
 | OPEN-2 | Shared feature-vector interface between spatial (RepViT) and temporal (BiLSTM/GRU) stages | Needed so team members can build Sections 2–4 independently and integrate at the end (`ROADMAP.md`) |
 | OPEN-3 | Deployment target for the final web app | Hugging Face Spaces vs. Streamlit Community Cloud vs. Render — all free-tier candidates, not yet decided |
 | OPEN-4 | Whether to fine-tune RepViT or use it frozen | Affects compute budget and Colab free-tier feasibility |

@@ -68,8 +68,8 @@ a static-image, isolated-sign dataset instead, for three reasons:
    demo (including real evaluation numbers, see below) while the
    video-based dataset (for continuous signing) is prepared in parallel.
 
-The switch to a video dataset (WLASL or INCLUDE) happens at the temporal
-modeling stage — details and rationale in `ROADMAP.md`.
+The switch to the video dataset happens at the temporal modeling stage, and
+for this project the chosen dataset is **WLASL**.
 
 ---
 
