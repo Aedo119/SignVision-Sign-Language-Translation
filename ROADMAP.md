@@ -3,7 +3,6 @@
 This covers everything after the data pipeline stage documented in `README.md`:
 spatial feature extraction, temporal modeling, classification, language
 processing, and deployment. Roughly 75% of the project by architecture stage.
----
 
 ## 1. Switch to a video dataset
 
