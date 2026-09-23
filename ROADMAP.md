@@ -3,15 +3,6 @@
 This covers everything after the data pipeline stage documented in `README.md`:
 spatial feature extraction, temporal modeling, classification, language
 processing, and deployment. Roughly 75% of the project by architecture stage.
-
-> **Since this roadmap was first written:** a keypoints-only baseline
-> classifier has been added and evaluated (see `README.md` "Baseline
-> evaluation" and `DECISIONS.md` DEC-006), and the reasoning behind the
-> keypoint-detection retry strategy has been investigated further in
-> `FAILURE_ANALYSIS.md`. Section 8 below has been updated to reflect this —
-> the rest of the roadmap (Sections 1–7) is unchanged and still describes
-> genuinely unstarted work.
-
 ---
 
 ## 1. Switch to a video dataset
