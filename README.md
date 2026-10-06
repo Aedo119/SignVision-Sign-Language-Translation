@@ -1,9 +1,9 @@
 # Sign Language Recognition & Translation
 
 A system that translates sign language video into text, following a data pipeline →
-deep learning → language processing architecture. This repository currently
-implements the **data pipeline stage**: dataset acquisition, preprocessing,
-hand keypoint detection, and a baseline evaluation of that representation.
+deep learning → language processing architecture. The repository includes a
+script-based static-sign baseline and a Kaggle notebook that implements the
+experimental WLASL100 video-to-gloss pipeline.
 
 **Team 29** — Christine Mary Paul, Kavya Nair Puthiyedath, Hema Sudabathula, Joanna Sara Jipson
 
@@ -20,11 +20,11 @@ Keypoint detection             ┘
         ↓
 Spatial feature extraction     ┐
         ↓                      │
-Temporal modeling              │  Deep learning  (planned — see ROADMAP.md)
+Temporal modeling              │  Deep learning  (implemented in the notebook)
         ↓                      │
 Sign classification            ┘
         ↓
-Language processing             — Grammar/context refinement (planned)
+Language processing             — Rule-based/optional FLAN-T5 refinement
         ↓
 Text output
 ```
@@ -37,11 +37,11 @@ Text output
 | Keypoint detection | Extract 21-point hand landmarks per frame via MediaPipe, with confidence/flip retries to maximize detection rate | `src/keypoint_extraction.py` |
 | Verification | Visual overlay of detected landmarks on sample frames | `src/visualize_keypoints.py` |
 | Baseline evaluation | Sanity-check classifiers trained on the extracted keypoints | `src/baseline_classifier.py` |
+| WLASL100 video pipeline | All-frame keypoint extraction, spatial encoding, Transformer temporal modeling, classification, evaluation, gloss inference, and optional text refinement | `src/notebooks/video_to_gloss.ipynb` |
 
-Everything else in the architecture (spatial feature extraction, temporal
-modeling, final classification, language processing, and the web interface)
-is not yet implemented. See [`ROADMAP.md`](./ROADMAP.md) for the detailed
-plan, required tools, and task breakdown for the remaining work.
+The notebook provides the current experimental end-to-end modeling workflow;
+deployment and a production web interface are not yet implemented. See
+[`ROADMAP.md`](./ROADMAP.md) for the remaining work.
 
 ---
 
@@ -56,20 +56,21 @@ GitHub with no registration required.
 
 The architecture is designed around full sign-language *video* (continuous
 motion feeding a temporal BiLSTM/GRU model). We're deliberately starting with
-a static-image, isolated-sign dataset instead, for three reasons:
+a static-image, isolated-sign dataset instead, for two reasons:
 
 1. **De-risking the pipeline before adding video complexity.** Preprocessing
    and keypoint detection logic is identical whether the input is a single
    frame or a frame sampled from video — validating it on images first lets
    us catch bugs early and cheaply, before dealing with the much larger
    storage and processing cost of video.
-3. **A working baseline.** A static-image dataset alone is sufficient for
+2. **A working baseline.** A static-image dataset alone is sufficient for
    isolated sign/digit classification, so it can support an early end-to-end
    demo (including real evaluation numbers, see below) while the
    video-based dataset (for continuous signing) is prepared in parallel.
 
 The switch to the video dataset happens at the temporal modeling stage, and
-for this project the chosen dataset is **WLASL**.
+for this project the chosen dataset is **WLASL**. The new notebook uses the
+100-class WLASL subset (WLASL100).
 
 ---
 
@@ -118,6 +119,31 @@ python baseline_classifier.py --keypoints ../outputs/hand_keypoints.npz --out_di
 (run each command on one line as above, or use a backtick
 `` ` `` instead of `\` for line continuation — PowerShell doesn't use `\`.)
 
+### Running the WLASL100 notebook
+
+Open [`src/notebooks/video_to_gloss.ipynb`](./src/notebooks/video_to_gloss.ipynb)
+in Kaggle, attach the **WLASL (Processed)** dataset by `risangbaskoro`, and
+enable Internet access for dependency installation and the optional FLAN-T5
+download. Run the notebook's setup cells before the remaining cells.
+
+The notebook:
+
+- extracts 7 upper-body and 42 hand landmarks from every annotated video frame;
+- normalizes missing detections and builds pose/hand features with masks and
+  motion information;
+- trains an ensemble of spatial MLP encoders plus a temporal Transformer on
+  WLASL100;
+- evaluates top-1/top-5 accuracy with optional test-time augmentation and
+  benchmarks sliding-window gloss inference with word error rate;
+- optionally refines a gloss sequence with rules or public FLAN-T5; and
+- saves `glosses.json`, `config.json`, and `ensemble.pt` under
+  `/kaggle/working`.
+
+Keypoints are cached in `/kaggle/working/kp_all`, so the one-time extraction
+step can be resumed. WLASL contains isolated signs rather than sentence-level
+annotations; consequently, the text-refinement step is a demonstration and
+must not be treated as a trained sign-to-sentence translator.
+
 ## Outputs
 
 | File | Contents |
@@ -156,7 +182,7 @@ python baseline_classifier.py --keypoints ../outputs/hand_keypoints.npz --out_di
 We trained two lightweight baseline classifiers directly on the 63-d keypoint vectors
 already extracted, to get real, reportable numbers now and to sanity-check
 that the keypoint representation is actually working well before investing
-time in RepViT/BiLSTM.
+time in the video model.
 
 **This is a baseline, not the final model** — static per-image
 classification with no temporal component. It's a lower bound.
@@ -192,6 +218,8 @@ the harder, video-based continuous-sign task ahead.
 │   ├── preprocess.py
 │   ├── keypoint_extraction.py
 │   ├── visualize_keypoints.py
-│   └── baseline_classifier.py
+│   ├── baseline_classifier.py
+│   └── notebooks/
+│       └── video_to_gloss.ipynb   WLASL100 video-to-gloss training and inference
 └── outputs/                 generated by running the scripts above
 ```

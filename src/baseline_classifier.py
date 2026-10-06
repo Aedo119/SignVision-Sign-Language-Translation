@@ -3,7 +3,7 @@ Baseline evaluation: is the keypoint representation actually good enough to
 classify signs?
 
 This is NOT the final classifier from the proposed architecture (that comes
-after RepViT spatial features + BiLSTM/GRU temporal modeling, once we move to
+after spatial feature extraction and temporal modeling, once we move to
 video). It's a lightweight sanity-check classifier trained directly on the
 63-d MediaPipe hand-keypoint vectors already extracted, to get real,
 reportable evaluation numbers at this stage of the project rather than

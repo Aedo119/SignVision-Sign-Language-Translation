@@ -22,30 +22,27 @@ single frame. The resize/normalize logic stays the same.
 
 ---
 
-## 2. Spatial feature extraction — RepViT
+## 2. Spatial feature extraction
 
 **Goal:** replace/augment the raw 63-d keypoint vectors with learned visual
 features per frame (hand shape, finger configuration, orientation, posture).
 
 **Tools needed (all free):**
-- RepViT reference implementation — available on GitHub from the original
-  paper's authors; can be used as a fixed pretrained feature extractor or
-  fine-tuned.
-- PyTorch or TensorFlow (whichever the team is more comfortable with;
-  PyTorch has more readily available RepViT ports).
+- A lightweight spatial encoder that produces a fixed-length feature vector
+  for each frame or keypoint set.
+- PyTorch or TensorFlow (whichever the team is more comfortable with).
 - GPU access — Google Colab's free tier (T4 GPU) is enough at this dataset
   scale.
 
 **Implementation notes:**
-- Start by using RepViT as a frozen feature extractor (no fine-tuning) to get
-  a working end-to-end pipeline faster; fine-tune only if time/accuracy needs
-  demand it.
+- Start with the keypoint-based MLP encoder implemented in
+  `src/notebooks/video_to_gloss.ipynb`; explore a pretrained visual encoder
+  only if accuracy needs justify the additional compute.
 - Output per frame should be a fixed-length feature vector — this is what
   gets stacked into a sequence for Section 3.
-- Consider concatenating RepViT features with the MediaPipe keypoint vector
-  already produced by `src/keypoint_extraction.py` — landmarks give precise
-  geometric structure, RepViT gives visual context; combining both often
-  outperforms either alone.
+- Consider concatenating learned visual features with the MediaPipe keypoint
+  vector already produced by `src/keypoint_extraction.py` — landmarks give
+  precise geometric structure while image features provide visual context.
 
 ---
 
@@ -129,7 +126,7 @@ coherent text (grammar, word order, context).
 ## 8. Evaluation and ablation studies
 
 **Done:** a keypoints-only baseline (Logistic Regression / Random Forest on
-the 63-d MediaPipe vectors, no RepViT, no temporal modeling) has already
+the 63-d MediaPipe vectors, with no learned spatial or temporal modeling) has already
 been trained and evaluated — ~98.7% test accuracy, 98.5% 5-fold CV accuracy.
 See `README.md` "Baseline evaluation" for the full numbers and the explicit
 caveat that this is a floor, not a preview of final system accuracy.
@@ -142,7 +139,7 @@ remaining ~8.7% of undetected images (179/2,062) are a targeted problem, not
 a generic "improve image quality" one.
 
 **Still remaining, once Sections 2–4 exist:**
-- Keypoints-only (done, above) vs. RepViT features vs. combined.
+- Keypoints-only (done, above) vs. learned visual features vs. combined.
 - With vs. without the BiLSTM temporal stage (i.e. per-frame classification
   vs. sequence classification).
 - Effect of dataset size / augmentation on accuracy.
@@ -162,7 +159,7 @@ the final report.
 
 | Member | Primary ownership | Also contributes to |
 |---|---|---|
-| **A** | Video dataset setup (Section 1) + Spatial feature extraction / RepViT (Section 2) | Data pipeline extension for video (updating `preprocess.py`) |
+| **A** | Video dataset setup (Section 1) + spatial feature extraction (Section 2) | Data pipeline extension for video (updating `preprocess.py`) |
 | **B** | Temporal modeling / BiLSTM-GRU (Section 3) + Classification head (Section 4) | Evaluation & ablation studies (Section 8) |
 | **C** | Language processing / post-processing (Section 5) + Text/speech output (Section 6) | Report write-up, results section |
 | **D** | Web/mobile integration and deployment (Section 7) | Integration testing across all stages, demo prep |

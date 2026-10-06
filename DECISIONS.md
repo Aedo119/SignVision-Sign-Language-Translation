@@ -140,12 +140,12 @@ reasoning.
 
 ---
 
-### DEC-006 — Add a baseline classifier before RepViT/BiLSTM exist
+### DEC-006 — Add a baseline classifier before the video model exists
 **Status:** Accepted
 
 **Context:** The architecture's evaluation metrics (accuracy, F1, confusion
 matrix) were originally scoped to the *final* classifier, which sits after
-spatial (RepViT) and temporal (BiLSTM/GRU) stages that don't exist yet —
+spatial and temporal modeling stages that don't exist yet —
 meaning there was no way to produce real evaluation numbers at Milestone 1.
 
 **Decision:** Train lightweight baseline classifiers (Logistic Regression,
@@ -155,7 +155,7 @@ documented as a floor, not the project's final result.
 
 **Result:** ~98.7% test accuracy, 98.5% 5-fold CV accuracy (Logistic
 Regression) — confirms the keypoint representation is sound before
-investing time in RepViT/BiLSTM.
+investing time in the video model.
 
 **Explicit caveat recorded alongside this decision:** isolated static-digit
 classification is a materially easier task than continuous video-based sign
@@ -174,7 +174,7 @@ modeling stages can learn motion on realistic ASL sequences.
 
 **Decision:** Standardize on **WLASL (Word-Level ASL)** as the dataset for the
 video-based modeling phase. WLASL is the primary target for downstream stages
-including RepViT feature extraction, temporal modeling, and final
+including spatial feature extraction, temporal modeling, and final
 classification.
 
 **Alternatives considered:**
@@ -194,9 +194,9 @@ assume WLASL-style video inputs and frame-level sampling.
 
 | # | Decision needed | Notes |
 |---|---|---|
-| OPEN-2 | Shared feature-vector interface between spatial (RepViT) and temporal (BiLSTM/GRU) stages | Needed so team members can build Sections 2–4 independently and integrate at the end (`ROADMAP.md`) |
+| OPEN-2 | Shared feature-vector interface between spatial and temporal modeling stages | Needed so team members can build Sections 2–4 independently and integrate at the end (`ROADMAP.md`) |
 | OPEN-3 | Deployment target for the final web app | Hugging Face Spaces vs. Streamlit Community Cloud vs. Render — all free-tier candidates, not yet decided |
-| OPEN-4 | Whether to fine-tune RepViT or use it frozen | Affects compute budget and Colab free-tier feasibility |
+| OPEN-4 | Whether to add or fine-tune a pretrained visual encoder | Affects compute budget and free-tier feasibility |
 
 ---
 
