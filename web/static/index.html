@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SignVision — Real-Time Sign Language Translation</title>
+  <meta name="description" content="AI-powered Sign Language Recognition & Translation with live webcam streaming and video file processing using MediaPipe and Deep Learning." />
+  
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  
+  <!-- MediaPipe Tasks Vision (modern, actively maintained CDN) -->
+  <script type="module" src="/static/script.js"></script>
+
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+  <!-- Ambient background glow elements -->
+  <div class="ambient-glow glow-1"></div>
+  <div class="ambient-glow glow-2"></div>
+  <div class="ambient-glow glow-3"></div>
+
+  <div class="app-container">
+    <!-- Header -->
+    <header class="header">
+      <div class="brand">
+        <div class="brand-icon">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M18 11V6a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v0"/>
+            <path d="M14 10V4a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v2"/>
+            <path d="M10 10.5V6a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v8"/>
+            <path d="M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15"/>
+          </svg>
+        </div>
+        <div>
+          <h1 class="brand-title">SignVision</h1>
+          <p class="brand-tagline">Continuous Sign-to-Text Translation Engine</p>
+        </div>
+      </div>
+
+      <div class="header-status">
+        <div id="system-status-pill" class="status-pill status-ready">
+          <span class="status-dot"></span>
+          <span id="system-status-text">System Ready</span>
+        </div>
+        <div id="mode-badge" class="mode-badge">MediaPipe Tasks Vision</div>
+      </div>
+    </header>
+
+    <!-- Main Navigation Tabs -->
+    <nav class="tabs-nav" aria-label="Input Mode Switcher">
+      <button id="tab-webcam" class="tab-btn active" type="button">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/>
+        </svg>
+        Live Camera Stream
+      </button>
+      <button id="tab-upload" class="tab-btn" type="button">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>
+        </svg>
+        Video File Upload
+      </button>
+    </nav>
+
+    <!-- Content Workspace -->
+    <main class="workspace">
+      <!-- 1. LIVE WEBCAM PANEL -->
+      <section id="webcam-panel" class="panel-section active">
+        <div class="stream-layout">
+          <!-- Video Screen Viewport -->
+          <div class="video-card">
+            <div class="video-container">
+              <video id="webcam-video" autoplay playsinline muted></video>
+              <canvas id="overlay-canvas"></canvas>
+              <canvas id="hidden-canvas" style="display: none;"></canvas>
+
+              <div id="camera-placeholder" class="camera-placeholder">
+                <div class="placeholder-icon">
+                  <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                    <circle cx="12" cy="12" r="10"/>
+                    <polygon points="10 8 16 12 10 16 10 8"/>
+                  </svg>
+                </div>
+                <h3>Camera is Inactive</h3>
+                <p>Click "Start Camera" below to initiate real-time sign recognition</p>
+              </div>
+
+              <!-- Stream Overlays -->
+              <div id="live-indicator" class="live-indicator hidden">
+                <span class="live-pulse"></span> REC LIVE
+              </div>
+
+              <div id="landmarks-status" class="landmarks-status hidden">
+                <span class="indicator-icon">✋</span> Hand Tracked
+              </div>
+            </div>
+
+            <!-- Camera Controls Bar -->
+            <div class="camera-controls">
+              <div class="primary-controls">
+                <button id="start-btn" class="btn btn-primary" type="button">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                  Start Camera
+                </button>
+                <button id="stop-btn" class="btn btn-danger" type="button" disabled>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><rect x="4" y="4" width="16" height="16" rx="2"/></svg>
+                  Stop Camera
+                </button>
+              </div>
+
+              <div class="secondary-controls">
+                <label class="toggle-control" title="Toggle Skeleton Overlay">
+                  <input type="checkbox" id="toggle-skeleton" checked />
+                  <span class="toggle-slider"></span>
+                  <span class="toggle-label">Landmark Mesh</span>
+                </label>
+                <label class="toggle-control" title="Mirror Camera Feed">
+                  <input type="checkbox" id="toggle-mirror" checked />
+                  <span class="toggle-slider"></span>
+                  <span class="toggle-label">Mirror</span>
+                </label>
+              </div>
+            </div>
+          </div>
+
+          <!-- Real-Time Translation Output Card -->
+          <div class="results-card">
+            <div class="card-header">
+              <h2>Live Translation</h2>
+              <button id="speak-btn" class="icon-btn" title="Speak translation aloud" type="button">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+                  <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path>
+                </svg>
+              </button>
+            </div>
+
+            <!-- Vocabulary Mode Switcher -->
+            <div class="vocab-mode-card">
+              <div class="vocab-mode-title">
+                <span>Translation Mode:</span>
+                <span class="vocab-mode-hint" id="vocab-mode-hint">All Signs &amp; English Words</span>
+              </div>
+              <div class="vocab-mode-pills" role="radiogroup" aria-label="Vocabulary selection">
+                <button type="button" class="vocab-pill active" data-mode="combined">
+                  <span class="pill-icon">✦</span>
+                  <span class="pill-text">All Signs &amp; Words</span>
+                </button>
+                <button type="button" class="vocab-pill" data-mode="words">
+                  <span class="pill-icon">🔤</span>
+                  <span class="pill-text">ASL Words</span>
+                </button>
+                <button type="button" class="vocab-pill" data-mode="numbers">
+                  <span class="pill-icon">🔢</span>
+                  <span class="pill-text">Number Words (Zero–Nine)</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- Quick Sign Guide -->
+            <div class="gesture-guide-bar">
+              <span class="guide-title">Key Signs:</span>
+              <div class="gesture-chips-scroll">
+                <span class="gesture-hint-chip" title="Open palm upright">🖐️ Hello / Five</span>
+                <span class="gesture-hint-chip" title="Closed fist">✊ Yes / Zero</span>
+                <span class="gesture-hint-chip" title="V-sign peace">✌️ Peace / Two</span>
+                <span class="gesture-hint-chip" title="Thumb, index &amp; pinky">🤟 I Love You</span>
+                <span class="gesture-hint-chip" title="Thumbs up">👍 Good</span>
+                <span class="gesture-hint-chip" title="Index pointing">☝️ You / One</span>
+                <span class="gesture-hint-chip" title="W shape (3 fingers)">💧 Water / Three</span>
+                <span class="gesture-hint-chip" title="4 fingers">✋ Four</span>
+              </div>
+            </div>
+
+            <!-- Active Predicted Gloss -->
+            <div class="output-box gloss-box">
+              <div class="box-header-row">
+                <span class="box-label">CURRENT SIGN / GLOSS</span>
+                <span id="hold-badge" class="hold-badge">Hold to commit</span>
+              </div>
+              <div id="gloss-webcam" class="box-value accent-cyan">—</div>
+              <div class="confidence-bar-container">
+                <div class="confidence-info">
+                  <span>Confidence</span>
+                  <span id="confidence-val">0%</span>
+                </div>
+                <div class="confidence-track">
+                  <div id="confidence-fill" class="confidence-fill" style="width: 0%;"></div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Assembled Translated Text -->
+            <div class="output-box text-box">
+              <div class="box-header-row">
+                <span class="box-label">TRANSLATED ENGLISH SENTENCE</span>
+                <div class="sentence-actions">
+                  <button id="backspace-btn" class="mini-btn" title="Delete last sign" type="button">⌫ Backspace</button>
+                  <button id="copy-btn" class="mini-btn" title="Copy translated sentence" type="button">📋 Copy</button>
+                </div>
+              </div>
+              <div id="text-webcam" class="box-value sentence-value">Awaiting gestures...</div>
+            </div>
+
+            <!-- History of recognized signs -->
+            <div class="history-container">
+              <div class="history-header">
+                <span>Recent Signs</span>
+                <button id="clear-history-btn" class="text-btn" type="button">Clear</button>
+              </div>
+              <div id="tokens-stream" class="tokens-stream">
+                <span class="empty-tokens">No signs recognized yet</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 2. VIDEO FILE UPLOAD PANEL -->
+      <section id="upload-panel" class="panel-section">
+        <div class="upload-layout">
+          <!-- Dropzone Card -->
+          <div class="upload-card">
+            <div id="drop-zone" class="drop-zone">
+              <input type="file" id="file-input" accept="video/mp4,video/webm,video/quicktime,video/x-msvideo" class="file-input-hidden" />
+              <div class="drop-zone-content">
+                <div class="drop-icon">
+                  <svg width="54" height="54" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                    <polyline points="17 8 12 3 7 8"/>
+                    <line x1="12" y1="3" x2="12" y2="15"/>
+                  </svg>
+                </div>
+                <h3>Drag &amp; Drop Video Here</h3>
+                <p>Supports MP4, WebM, MOV, AVI (max 50MB)</p>
+                <button id="browse-btn" class="btn btn-secondary" type="button">Browse Files</button>
+              </div>
+            </div>
+
+            <!-- Uploaded Video Preview -->
+            <div id="preview-container" class="preview-container hidden">
+              <div class="preview-header">
+                <span id="selected-file-name" class="file-name">video.mp4</span>
+                <button id="remove-file-btn" class="text-btn" type="button">Remove</button>
+              </div>
+              <video id="preview-video" controls playsinline></video>
+              <button id="process-btn" class="btn btn-primary btn-block" type="button">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <polygon points="5 3 19 12 5 21 5 3"/>
+                </svg>
+                Run Sign Translation
+              </button>
+            </div>
+
+            <!-- Upload Processing Progress -->
+            <div id="upload-progress-card" class="progress-card hidden">
+              <div class="spinner"></div>
+              <div class="progress-details">
+                <h4 id="progress-status">Extracting MediaPipe Keypoints...</h4>
+                <p>Analyzing pose &amp; hand motion across frames</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Video Upload Results Card -->
+          <div class="results-card">
+            <div class="card-header">
+              <h2>Video Translation Report</h2>
+            </div>
+
+            <div class="output-box gloss-box">
+              <div class="box-label">PRIMARY SIGN GLOSS</div>
+              <div id="gloss-upload" class="box-value accent-cyan">—</div>
+            </div>
+
+            <div class="output-box text-box">
+              <div class="box-label">TRANSLATED TEXT</div>
+              <div id="text-upload" class="box-value sentence-value">—</div>
+            </div>
+
+            <!-- Metrics grid -->
+            <div class="metrics-grid">
+              <div class="metric-item">
+                <span class="metric-label">Detected Frames</span>
+                <span id="metric-frames" class="metric-value">—</span>
+              </div>
+              <div class="metric-item">
+                <span class="metric-label">Inference Time</span>
+                <span id="metric-latency" class="metric-value">—</span>
+              </div>
+              <div class="metric-item">
+                <span class="metric-label">Model Confidence</span>
+                <span id="metric-confidence" class="metric-value">—</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer">
+      <p>SignVision Translation System &bull; Real-Time MediaPipe Tracking &bull; Sign-to-Text Pipeline</p>
+    </footer>
+  </div>
+</body>
+</html>
