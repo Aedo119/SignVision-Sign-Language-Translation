@@ -45,6 +45,10 @@ from src.inference.pipeline import (
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("signvision.server")
 
+# Seconds between live predictions. Frames still arrive at ~10 fps and fill the
+# buffer; this only controls how often the model runs (higher = steadier output).
+PREDICT_INTERVAL_SEC = 0.5
+
 
 def to_jsonable(obj: Any) -> Any:
     """Recursively convert NumPy scalars/arrays to JSON-serializable Python types.
@@ -145,14 +149,8 @@ async def handle_video_upload(file: UploadFile = File(...), mode: str = "combine
                 content={"error": "No hand or pose landmarks detected in the uploaded video."}
             )
 
-        if len(landmarks) > 32:
-            step = len(landmarks) / 32.0
-            indices = [int(i * step) for i in range(32)]
-            eval_window = landmarks[indices]
-        else:
-            eval_window = landmarks
-
-        prediction = predict_from_frames(eval_window, mode=mode)
+        # Pass every frame: the ensemble interpolates gaps and samples its own 32 frames
+        prediction = predict_from_frames(landmarks, mode=mode)
         elapsed = round(time.time() - start_time, 2)
 
         res = {
@@ -230,8 +228,7 @@ class StreamConnectionManager:
                 if len(buffer) > session["max_buffer"]:
                     buffer.pop(0)
 
-                # Predict every ~150ms
-                if len(buffer) >= 2 and (now - session["last_prediction_time"]) > 0.15:
+                if len(buffer) >= 2 and (now - session["last_prediction_time"]) > PREDICT_INTERVAL_SEC:
                     session["last_prediction_time"] = now
                     win = np.stack(buffer, axis=0)
                     res = predict_from_frames(win, mode=mode)
@@ -283,7 +280,7 @@ class StreamConnectionManager:
                 landmarks_for_viz["right_hand"].append({"x": float(kp[i, 0]), "y": float(kp[i, 1])})
 
         prediction_result = None
-        if len(buffer) >= 6 and (now - session["last_prediction_time"]) > 0.2:
+        if len(buffer) >= 6 and (now - session["last_prediction_time"]) > PREDICT_INTERVAL_SEC:
             session["last_prediction_time"] = now
             window_arr = np.stack(buffer[-16:], axis=0) if len(buffer) >= 16 else np.stack(buffer, axis=0)
             prediction_result = predict_from_frames(window_arr, mode=mode)

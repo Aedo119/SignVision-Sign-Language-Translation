@@ -559,25 +559,18 @@ function applyPrediction(pred) {
 
   lastValidPredictionTime = performance.now();
 
-  // 1. Display Current Sign / Gloss in English words
-  let displayHtml = escapeHtml(gloss.toUpperCase());
-  if (digit !== null) {
-    displayHtml += ` <span class="digit-subbadge">#${escapeHtml(digit)}</span>`;
-  }
-  glossWebcam.innerHTML      = displayHtml;
-  confidenceVal.textContent  = `${conf}%`;
-  confidenceFill.style.width = `${conf}%`;
-
-  // 2. Add to sliding majority buffer
+  // 1. Add to sliding majority buffer
   predictionBuffer.push({ gloss, text, digit, conf, time: performance.now() });
   if (predictionBuffer.length > 5) predictionBuffer.shift();
 
   // Majority vote over recent frames to eliminate camera jitter
   const counts = {};
   const textMap = {};
+  const latest = {};
   for (const item of predictionBuffer) {
     counts[item.gloss] = (counts[item.gloss] || 0) + 1;
     textMap[item.gloss] = item.text;
+    latest[item.gloss] = item;
   }
 
   let dominantGloss = null;
@@ -587,6 +580,18 @@ function applyPrediction(pred) {
       maxCount = count;
       dominantGloss = g;
     }
+  }
+
+  // 2. Display only a stable sign (seen in >= 2 recent predictions), not every raw result
+  if (dominantGloss && maxCount >= 2) {
+    const shown = latest[dominantGloss];
+    let displayHtml = escapeHtml(dominantGloss.toUpperCase());
+    if (shown.digit !== null) {
+      displayHtml += ` <span class="digit-subbadge">#${escapeHtml(shown.digit)}</span>`;
+    }
+    glossWebcam.innerHTML      = displayHtml;
+    confidenceVal.textContent  = `${shown.conf}%`;
+    confidenceFill.style.width = `${shown.conf}%`;
   }
 
   // Stable detection

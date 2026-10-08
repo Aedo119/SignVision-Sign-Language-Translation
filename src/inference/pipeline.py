@@ -21,9 +21,19 @@ import joblib
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("signvision.inference")
 
-MODEL_PATH = Path("outputs/transformer.pt")
-BASELINE_PATH = Path("outputs/baseline_classifier.joblib")
-TASK_MODEL_PATH = Path("hand_landmarker.task")
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+MODEL_PATH = PROJECT_ROOT / "outputs" / "ensemble.pt"          # WLASL100 Transformer ensemble
+GLOSSES_PATH = PROJECT_ROOT / "outputs" / "glosses.json"       # class order saved by the notebook
+BASELINE_PATH = PROJECT_ROOT / "outputs" / "baseline_classifier.joblib"
+TASK_MODEL_PATH = PROJECT_ROOT / "hand_landmarker.task"
+
+# Ensemble needs enough frames to see the motion of a sign, and a minimum
+# confidence (it has no "no sign" class, so it always outputs one of 100 words).
+ENSEMBLE_MIN_FRAMES = 8
+ENSEMBLE_MIN_CONF = 0.50
+
+# Predictions at or below this confidence are not shown (returned as "..." instead).
+MIN_DISPLAY_CONF = 0.50
 
 # 7 upper body points (nose, shoulders, elbows, wrists) + 21 left hand + 21 right hand = 49 points
 POSE_IDX = [0, 11, 12, 13, 14, 15, 16]
@@ -55,43 +65,46 @@ def has_mediapipe_solutions() -> bool:
         return False
 
 
+def load_ensemble():
+    """Load the WLASL100 Transformer ensemble from outputs/ensemble.pt (cached), or None."""
+    global _CACHED_TRANSFORMER
+    if _CACHED_TRANSFORMER is not None:
+        return _CACHED_TRANSFORMER
+    if not MODEL_PATH.exists():
+        return None
+    try:
+        from .ensemble import SignEnsemble
+        logger.info("Loading Transformer ensemble from %s", MODEL_PATH)
+        _CACHED_TRANSFORMER = SignEnsemble(MODEL_PATH, GLOSSES_PATH)
+    except Exception as e:
+        logger.error("Failed to load Transformer ensemble: %s", e)
+        _CACHED_TRANSFORMER = False   # don't retry on every frame
+    return _CACHED_TRANSFORMER or None
+
+
+def load_baseline():
+    """Load the scikit-learn baseline digit classifier (cached), or None."""
+    global _CACHED_BASELINE
+    if _CACHED_BASELINE is not None:
+        return _CACHED_BASELINE or None
+    if not BASELINE_PATH.exists():
+        return None
+    try:
+        logger.info("Loading Baseline Classifier from %s", BASELINE_PATH)
+        _CACHED_BASELINE = joblib.load(BASELINE_PATH)
+    except Exception as e:
+        logger.error("Failed to load baseline classifier: %s", e)
+        _CACHED_BASELINE = False
+    return _CACHED_BASELINE or None
+
+
 def load_model():
-    """Load the best available model:
-    1. PyTorch Transformer if outputs/transformer.pt exists
+    """Return the best available model:
+    1. Transformer ensemble if outputs/ensemble.pt exists
     2. Scikit-learn Baseline Classifier if outputs/baseline_classifier.joblib exists
     3. Graceful fallback
     """
-    global _CACHED_TRANSFORMER, _CACHED_BASELINE
-
-    # Check for PyTorch Transformer first
-    if MODEL_PATH.exists():
-        if _CACHED_TRANSFORMER is not None:
-            return _CACHED_TRANSFORMER
-        try:
-            import torch
-            logger.info("Loading PyTorch model from %s", MODEL_PATH)
-            ckpt = torch.load(MODEL_PATH, map_location="cpu")
-            model = ckpt.get("model", ckpt) if isinstance(ckpt, dict) else ckpt
-            if hasattr(model, "eval"):
-                model.eval()
-            _CACHED_TRANSFORMER = model
-            return model
-        except Exception as e:
-            logger.error("Failed to load Transformer: %s", e)
-
-    # Check for Baseline Classifier (trained on 1,717 hand keypoints, 98.6% accuracy)
-    if BASELINE_PATH.exists():
-        if _CACHED_BASELINE is not None:
-            return _CACHED_BASELINE
-        try:
-            logger.info("Loading Baseline Classifier from %s", BASELINE_PATH)
-            data = joblib.load(BASELINE_PATH)
-            _CACHED_BASELINE = data
-            return data
-        except Exception as e:
-            logger.error("Failed to load baseline classifier: %s", e)
-
-    return "FALLBACK_DEMO_MODE"
+    return load_ensemble() or load_baseline() or "FALLBACK_DEMO_MODE"
 
 
 def get_task_detector():
@@ -211,6 +224,37 @@ def extract_video(path: str, start: int = 0, end: int = -1) -> Optional[np.ndarr
         s, e = 0, total_frames
 
     out = np.full((e - s, NPTS, 3), np.nan, dtype=np.float32)
+
+    # Preferred: Holistic on every frame in order, exactly as in the training notebook
+    # (gives the 7 pose points and correct left/right hands the ensemble expects).
+    if has_mediapipe_solutions():
+        import mediapipe as mp
+        holistic = mp.solutions.holistic.Holistic(static_image_mode=False, model_complexity=1,
+                                                  min_detection_confidence=0.4, min_tracking_confidence=0.4)
+        try:
+            for i in range(e):
+                if not cap.grab():
+                    break
+                if i < s:
+                    continue
+                ok, frame = cap.retrieve()
+                if not ok or frame is None:
+                    continue
+                res = holistic.process(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
+                a = out[i - s]
+                if res.pose_landmarks:
+                    for k, j in enumerate(POSE_IDX):
+                        lm = res.pose_landmarks.landmark[j]
+                        a[k] = (lm.x, lm.y, lm.z)
+                if res.left_hand_landmarks:
+                    a[7:28] = [(l.x, l.y, l.z) for l in res.left_hand_landmarks.landmark]
+                if res.right_hand_landmarks:
+                    a[28:49] = [(l.x, l.y, l.z) for l in res.right_hand_landmarks.landmark]
+        finally:
+            cap.release()
+            holistic.close()
+        return out if np.isfinite(out).any() else None
+
     detector = get_task_detector()
 
     try:
@@ -314,8 +358,23 @@ def detect_distinct_asl_sign(hand_21pts: np.ndarray) -> Optional[Dict[str, Any]]
 
 
 def predict_from_frames(frames_np: np.ndarray, mode: str = "combined") -> Dict[str, Any]:
+    """Like ``_predict_raw``, but hides predictions with confidence <= MIN_DISPLAY_CONF."""
+    result = _predict_raw(frames_np, mode)
+    if not result.get("is_fallback") and result.get("confidence", 0.0) <= MIN_DISPLAY_CONF:
+        return {
+            "gloss": "...",
+            "text": f"Not confident enough ({result['confidence']:.0%}) - hold the sign steady",
+            "confidence": result["confidence"],
+            "category": "none",
+            "digit": None,
+            "is_fallback": True
+        }
+    return result
+
+
+def _predict_raw(frames_np: np.ndarray, mode: str = "combined") -> Dict[str, Any]:
     """Classify landmark frames into sign gloss and text in English words.
-    
+
     Parameters:
       frames_np: (T, 49, 3) or (49, 3) or (T, 21, 3) or (21, 3) landmarks
       mode: 'combined' (words & numbers), 'words' (ASL words), or 'numbers' (Zero-Nine)
@@ -332,31 +391,26 @@ def predict_from_frames(frames_np: np.ndarray, mode: str = "combined") -> Dict[s
         raise ValueError(f"Input must have shape (T, N, 3), got {frames_np.shape}")
 
     num_points = frames_np.shape[1]
-    model = load_model()
+    model = load_baseline()
 
-    # 1. If PyTorch Transformer checkpoint exists
-    if isinstance(model, dict) is False and model != "FALLBACK_DEMO_MODE" and hasattr(model, "forward"):
+    # 1. Transformer ensemble (WLASL100 words). Needs the 49-point layout and a
+    #    hand in view; low-confidence results fall through to the baseline below.
+    ensemble = load_ensemble() if mode in ("combined", "words") else None
+    if (ensemble is not None and num_points == NPTS and len(frames_np) >= ENSEMBLE_MIN_FRAMES
+            and np.isfinite(frames_np[:, 7:49]).any()):
         try:
-            import torch
-            clean = np.nan_to_num(frames_np, nan=0.0)
-            inp = torch.from_numpy(clean).float().unsqueeze(0)  # (1, T, 49, 3)
-            with torch.no_grad():
-                logits = model(inp)
-                probs = torch.softmax(logits, dim=-1)
-                conf, pred_id = torch.max(probs, dim=-1)
-                idx = pred_id.item()
-                confidence = float(conf.item())
-            gloss = WLASL_GLOSSES[idx % len(WLASL_GLOSSES)].upper()
-            return {
-                "gloss": gloss,
-                "text": gloss.capitalize(),
-                "confidence": round(confidence, 3),
-                "category": "word",
-                "digit": None,
-                "is_fallback": False
-            }
+            gloss, confidence = ensemble.predict(frames_np)
+            if confidence >= ENSEMBLE_MIN_CONF:
+                return {
+                    "gloss": gloss.upper(),
+                    "text": gloss.capitalize(),
+                    "confidence": round(confidence, 3),
+                    "category": "word",
+                    "digit": None,
+                    "is_fallback": False
+                }
         except Exception as e:
-            logger.warning("Error running PyTorch model: %s", e)
+            logger.warning("Error running Transformer ensemble: %s", e)
 
     # 2. Extract 21 hand landmarks for baseline classifier
     hand_points = None
